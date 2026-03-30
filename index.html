@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>جدول المواعيد الذكي</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --bg: #f4f7f6;
+            --cell-bg: #e8f5e9;
+            --header-bg: #fff9c4;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 20px; }
+        .container { max-width: 1200px; margin: auto; overflow-x: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: var(--primary); }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th, td { border: 1px solid #ccc; padding: 12px; text-align: center; width: 7.14%; }
+        th { background: var(--header-bg); font-weight: bold; }
+        .date-label { display: block; font-size: 0.8em; color: #666; }
+        .editable { background: var(--cell-bg); min-height: 40px; cursor: pointer; transition: background 0.2s; outline: none; }
+        .editable:focus { background: #fff; border: 2px solid #4CAF50; }
+        .section-title { background: #fdfdfd; font-weight: bold; text-align: right; width: 120px; }
+        .today { border: 3px solid #4CAF50 !important; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>الجدول الأسبوعي الذكي</h2>
+    <table id="scheduleTable">
+        <thead>
+            <tr id="dayNames">
+                <th class="section-title">اليوم</th>
+                </tr>
+            <tr id="dateRow">
+                <th class="section-title">التاريخ</th>
+                </tr>
+        </thead>
+        <tbody>
+            <tr id="row-reflections">
+                <td class="section-title">تأملات</td>
+            </tr>
+            <tr id="row-verses">
+                <td class="section-title">آية اليوم</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const storageKey = 'schedule_data_v1';
+    const dayNamesAr = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    
+    // 1. Get data and clean old entries
+    function getCleanData() {
+        let data = JSON.parse(localStorage.getItem(storageKey) || "{}");
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        // Auto-delete past dates
+        Object.keys(data).forEach(date => {
+            if (date < todayStr) delete data[date];
+        });
+        
+        localStorage.setItem(storageKey, JSON.stringify(data));
+        return data;
+    }
+
+    // 2. Generate the 14-day range (Starting from the most recent Sunday or Today)
+    function initTable() {
+        const data = getCleanData();
+        const dayHeader = document.getElementById('dayNames');
+        const dateHeader = document.getElementById('dateRow');
+        const rowRef = document.getElementById('row-reflections');
+        const rowVer = document.getElementById('row-verses');
+
+        let current = new Date();
+        // Start from today or go back to Sunday to keep a standard week view
+        current.setDate(current.getDate() - current.getDay()); 
+
+        for (let i = 0; i < 14; i++) {
+            const dateStr = current.toISOString().split('T')[0];
+            const isToday = new Date().toISOString().split('T')[0] === dateStr;
+            const displayDate = current.toLocaleDateString('en-GB'); // DD/MM/YYYY
+
+            // Create Headers
+            const thDay = document.createElement('th');
+            thDay.innerText = dayNamesAr[current.getDay()];
+            if(isToday) thDay.classList.add('today');
+            dayHeader.appendChild(thDay);
+
+            const thDate = document.createElement('th');
+            thDate.innerText = displayDate;
+            if(isToday) thDate.classList.add('today');
+            dateHeader.appendChild(thDate);
+
+            // Create Editable Cells
+            rowRef.appendChild(createCell(dateStr, 'ref', data[dateStr]?.ref || ""));
+            rowVer.appendChild(createCell(dateStr, 'ver', data[dateStr]?.ver || ""));
+
+            current.setDate(current.getDate() + 1);
+        }
+    }
+
+    function createCell(date, type, content) {
+        const td = document.createElement('td');
+        td.className = 'editable';
+        td.contentEditable = true;
+        td.innerText = content;
+        
+        td.oninput = () => {
+            const data = JSON.parse(localStorage.getItem(storageKey) || "{}");
+            if (!data[date]) data[date] = {};
+            data[date][type] = td.innerText;
+            localStorage.setItem(storageKey, JSON.stringify(data));
+        };
+        
+        return td;
+    }
+
+    initTable();
+</script>
+</body>
+</html>
