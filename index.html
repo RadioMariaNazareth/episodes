@@ -17,14 +17,12 @@
         /* Logo Header */
         .logo-area { 
             text-align: center; 
-            padding: 20px; 
+            padding: 15px; 
             background: white; 
             margin-bottom: 20px; 
             border-radius: 15px; 
             border-bottom: 4px solid var(--primary-blue);
         }
-        .logo-text { font-size: 2em; color: var(--primary-blue); font-weight: bold; margin: 0; }
-        .logo-sub { color: #546e7a; font-size: 1.1em; }
 
         .container { max-width: 100%; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 8px 30px rgba(0,0,0,0.05); overflow-x: auto; }
         
@@ -53,7 +51,7 @@
 <body>
 
 <div class="logo-area">
-    <img src="rmnlogo.png" width="10%" alt="RMN-logo"/>
+    <img src="rmnlogo.png" style="width: 150px; height: auto;" alt="Radio Maria Nazareth Logo"/>
 </div>
 
 <div class="container">
@@ -89,7 +87,6 @@
             scheduleData = json.record || {};
             cleanOldData();
             renderTable();
-            checkInventory(); // Notify if less than 10 days
             document.getElementById('status').innerText = "تم التحديث ✅";
         } catch (e) {
             document.getElementById('status').innerText = "خطأ في الاتصال";
@@ -105,17 +102,9 @@
                 body: JSON.stringify(scheduleData)
             });
             document.getElementById('status').innerText = "تم الحفظ بنجاح ✨";
-            checkInventory();
+            setTimeout(() => { document.getElementById('status').innerText = "جاهز"; }, 3000);
         } catch (e) {
             alert("فشل الحفظ.");
-        }
-    }
-
-    function checkInventory() {
-        // Count entries that have content
-        const count = Object.values(scheduleData).filter(item => item.ref && item.ref.trim() !== "").length;
-        if (count < 10) {
-            alert(`تنبيه: يوجد لديك فقط ${count} أيام مبرمجة. يرجى إضافة المزيد من التأملات!`);
         }
     }
 
