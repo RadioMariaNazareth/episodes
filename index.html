@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <link rel="icon" type="image/x-icon" href="rmnlogo.png">
+    <link rel="icon" type="image/png" href="rmnlogo.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>راديو مريم الناصرة - الجدول</title>
@@ -15,15 +15,7 @@
         }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f7fa; color: var(--text-main); margin: 0; padding: 15px; }
         
-        /* Logo Header */
-        .logo-area { 
-            text-align: center; 
-            padding: 15px; 
-            background: white; 
-            margin-bottom: 20px; 
-            border-radius: 15px; 
-            border-bottom: 4px solid var(--primary-blue);
-        }
+        .logo-area { text-align: center; padding: 15px; background: white; margin-bottom: 20px; border-radius: 15px; border-bottom: 4px solid var(--primary-blue); }
 
         .container { max-width: 100%; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 8px 30px rgba(0,0,0,0.05); overflow-x: auto; }
         
@@ -31,7 +23,16 @@
         th, td { border: 0.5px solid var(--border-blue); padding: 12px; text-align: center; vertical-align: middle; }
         
         th { background: var(--header-blue); color: #01579b; font-weight: bold; font-size: 0.95em; }
-        .section-title { background: #f1f8ff; width: 150px; font-weight: 700; color: var(--primary-blue); border-left: 2px solid var(--primary-blue); }
+        
+        .section-title { 
+            background: #f1f8ff; width: 180px; font-weight: 700; color: var(--primary-blue); 
+            border-left: 2px solid var(--primary-blue); position: relative;
+        }
+        .delete-row { 
+            color: #d32f2f; cursor: pointer; font-size: 0.8em; margin-right: 8px; 
+            visibility: hidden; position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+        }
+        .section-title:hover .delete-row { visibility: visible; }
 
         .editable { background: white; min-height: 70px; outline: none; font-size: 1.1em; transition: all 0.2s; }
         .editable:focus { background: var(--light-blue-bg); }
@@ -40,12 +41,11 @@
         .week-divider { border-right: 4px solid var(--primary-blue) !important; }
         .today-highlight { background: #fffde7 !important; border: 2px solid #fbc02d !important; color: #f57f17; }
 
-        .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 10px; }
-        .btn-save { 
-            padding: 12px 40px; border: none; border-radius: 50px; cursor: pointer; 
-            font-weight: bold; color: white; background: var(--primary-blue); 
-            font-size: 1.1em; box-shadow: 0 4px 15px rgba(2, 136, 209, 0.3);
-        }
+        .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 10px; gap: 10px; }
+        .btn-group { display: flex; gap: 10px; }
+        .btn { padding: 12px 25px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; color: white; font-size: 1em; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .btn-save { background: var(--primary-blue); }
+        .btn-add { background: #4caf50; }
         #status { font-style: italic; color: #78909c; font-size: 0.9em; }
     </style>
 </head>
@@ -58,7 +58,10 @@
 <div class="container">
     <div class="controls">
         <div id="status">جاري التحميل...</div>
-        <button class="btn-save" onclick="saveData()">💾 حفظ التعديلات</button>
+        <div class="btn-group">
+            <button class="btn btn-add" onclick="addNewProgram()">➕ برنامج جديد</button>
+            <button class="btn btn-save" onclick="saveData()">💾 حفظ التعديلات</button>
+        </div>
     </div>
 
     <table id="scheduleTable">
@@ -66,10 +69,8 @@
             <tr id="dayNames"><th class="section-title">اليوم</th></tr>
             <tr id="dateRow"><th class="section-title">التاريخ</th></tr>
         </thead>
-        <tbody>
-            <tr id="row-ref"><td class="section-title">تأملات مسيحية</td></tr>
-            <tr id="row-ver"><td class="section-title">آية اليوم</td></tr>
-        </tbody>
+        <tbody id="tableBody">
+            </tbody>
     </table>
 </div>
 
@@ -78,14 +79,20 @@
     const API_KEY = '$2a$10$QIQ1Ipa0xdzeDZtiaDYR6.RdJxqBfD5tFC0TNrp8Xr3xTTixgWSrO';
     const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
     
-    let scheduleData = {};
+    let scheduleData = { data: {}, programs: ["تأملات مسيحية", "آية اليوم"] };
     const dayNamesAr = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
     async function loadData() {
         try {
             const res = await fetch(`${URL}/latest`, { headers: { 'X-Master-Key': API_KEY } });
             const json = await res.json();
-            scheduleData = json.record || {};
+            // Structure: { "programs": [], "data": { "YYYY-MM-DD": { "ProgramName": "Text" } } }
+            if (json.record.programs) {
+                scheduleData = json.record;
+            } else {
+                // Fallback for old structure
+                scheduleData.data = json.record;
+            }
             cleanOldData();
             renderTable();
             document.getElementById('status').innerText = "تم التحديث ✅";
@@ -112,59 +119,90 @@
     function cleanOldData() {
         const today = new Date().toISOString().split('T')[0];
         let needsSync = false;
-        Object.keys(scheduleData).forEach(date => {
-            if (date < today) { delete scheduleData[date]; needsSync = true; }
+        Object.keys(scheduleData.data).forEach(date => {
+            if (date < today) { 
+                delete scheduleData.data[date]; 
+                needsSync = true; 
+            }
         });
         if (needsSync) saveData();
+    }
+
+    function addNewProgram() {
+        const name = prompt("أدخل اسم البرنامج الجديد:");
+        if (name && !scheduleData.programs.includes(name)) {
+            scheduleData.programs.push(name);
+            renderTable();
+        }
+    }
+
+    function removeProgram(name) {
+        if(confirm(`هل أنت متأكد من حذف برنامج: ${name}؟`)) {
+            scheduleData.programs = scheduleData.programs.filter(p => p !== name);
+            renderTable();
+        }
     }
 
     function renderTable() {
         const dayRow = document.getElementById('dayNames');
         const dateRow = document.getElementById('dateRow');
-        const rRef = document.getElementById('row-ref');
-        const rVer = document.getElementById('row-ver');
+        const body = document.getElementById('tableBody');
+
+        // Reset Table
+        dayRow.innerHTML = '<th class="section-title">اليوم</th>';
+        dateRow.innerHTML = '<th class="section-title">التاريخ</th>';
+        body.innerHTML = '';
 
         let now = new Date();
         let day = now.getDay();
         let diff = now.getDate() - day + (day === 0 ? -6 : 1);
         let start = new Date(now.setDate(diff));
 
+        // Generate column headers
+        let dates = [];
         for (let i = 0; i < 14; i++) {
             let curr = new Date(start);
             curr.setDate(start.getDate() + i);
             let dStr = curr.toISOString().split('T')[0];
-            let isToday = new Date().toISOString().split('T')[0] === dStr;
-            let isWeek2Start = (i === 7);
-
+            dates.push({ str: dStr, isToday: new Date().toISOString().split('T')[0] === dStr, isDiv: (i === 7), day: dayNamesAr[curr.getDay()], label: curr.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit'}) });
+            
             const thD = document.createElement('th');
-            thD.innerText = dayNamesAr[curr.getDay()];
-            if(isWeek2Start) thD.classList.add('week-divider');
-            if(isToday) thD.classList.add('today-highlight');
+            thD.innerText = dates[i].day;
+            if(dates[i].isDiv) thD.classList.add('week-divider');
+            if(dates[i].isToday) thD.classList.add('today-highlight');
             dayRow.appendChild(thD);
 
             const thT = document.createElement('th');
-            thT.innerText = curr.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit'});
-            if(isWeek2Start) thT.classList.add('week-divider');
+            thT.innerText = dates[i].label;
+            if(dates[i].isDiv) thT.classList.add('week-divider');
             dateRow.appendChild(thT);
-
-            rRef.appendChild(createCell(dStr, 'ref', isWeek2Start, isToday));
-            rVer.appendChild(createCell(dStr, 'ver', isWeek2Start, isToday));
         }
-    }
 
-    function createCell(date, type, isDivider, isToday) {
-        const td = document.createElement('td');
-        td.className = 'editable';
-        td.contentEditable = true; 
-        if(isDivider) td.classList.add('week-divider');
-        if(isToday) td.classList.add('today-highlight');
-        td.innerText = scheduleData[date]?.[type] || "";
-        
-        td.oninput = () => {
-            if(!scheduleData[date]) scheduleData[date] = {};
-            scheduleData[date][type] = td.innerText;
-        };
-        return td;
+        // Generate Rows for each program
+        scheduleData.programs.forEach(prog => {
+            const tr = document.createElement('tr');
+            const titleTd = document.createElement('td');
+            titleTd.className = 'section-title';
+            titleTd.innerHTML = `${prog} <span class="delete-row" onclick="removeProgram('${prog}')">✖</span>`;
+            tr.appendChild(titleTd);
+
+            dates.forEach(d => {
+                const td = document.createElement('td');
+                td.className = 'editable';
+                td.contentEditable = true;
+                if(d.isDiv) td.classList.add('week-divider');
+                if(d.isToday) td.classList.add('today-highlight');
+                
+                td.innerText = scheduleData.data[d.str]?.[prog] || "";
+                
+                td.oninput = () => {
+                    if(!scheduleData.data[d.str]) scheduleData.data[d.str] = {};
+                    scheduleData.data[d.str][prog] = td.innerText;
+                };
+                tr.appendChild(td);
+            });
+            body.appendChild(tr);
+        });
     }
 
     loadData();
