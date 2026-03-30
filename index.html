@@ -3,122 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>جدول المواعيد الذكي</title>
+    <title>راديو مريم الناصرة - الجدول</title>
     <style>
-        :root {
-            --primary: #2c3e50;
-            --bg: #f4f7f6;
-            --cell-bg: #e8f5e9;
-            --header-bg: #fff9c4;
+        :root { 
+            --primary-blue: #0288d1; 
+            --light-blue-bg: #e1f5fe; 
+            --header-blue: #b3e5fc;
+            --border-blue: #81d4fa;
+            --text-main: #263238;
         }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 20px; }
-        .container { max-width: 1200px; margin: auto; overflow-x: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: var(--primary); }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th, td { border: 1px solid #ccc; padding: 12px; text-align: center; width: 7.14%; }
-        th { background: var(--header-bg); font-weight: bold; }
-        .date-label { display: block; font-size: 0.8em; color: #666; }
-        .editable { background: var(--cell-bg); min-height: 40px; cursor: pointer; transition: background 0.2s; outline: none; }
-        .editable:focus { background: #fff; border: 2px solid #4CAF50; }
-        .section-title { background: #fdfdfd; font-weight: bold; text-align: right; width: 120px; }
-        .today { border: 3px solid #4CAF50 !important; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f7fa; color: var(--text-main); margin: 0; padding: 15px; }
+        
+        /* Logo Header */
+        .logo-area { 
+            text-align: center; 
+            padding: 20px; 
+            background: white; 
+            margin-bottom: 20px; 
+            border-radius: 15px; 
+            border-bottom: 4px solid var(--primary-blue);
+        }
+        .logo-text { font-size: 2em; color: var(--primary-blue); font-weight: bold; margin: 0; }
+        .logo-sub { color: #546e7a; font-size: 1.1em; }
+
+        .container { max-width: 100%; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 8px 30px rgba(0,0,0,0.05); overflow-x: auto; }
+        
+        table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 1000px; border: 1px solid var(--border-blue); border-radius: 8px; overflow: hidden; }
+        th, td { border: 0.5px solid var(--border-blue); padding: 12px; text-align: center; vertical-align: middle; }
+        
+        th { background: var(--header-blue); color: #01579b; font-weight: bold; font-size: 0.95em; }
+        .section-title { background: #f1f8ff; width: 150px; font-weight: 700; color: var(--primary-blue); border-left: 2px solid var(--primary-blue); }
+
+        .editable { background: white; min-height: 70px; outline: none; font-size: 1.1em; transition: all 0.2s; }
+        .editable:focus { background: var(--light-blue-bg); }
+        tr:hover td.editable { background: #f9fcff; }
+
+        .week-divider { border-right: 4px solid var(--primary-blue) !important; }
+        .today-highlight { background: #fffde7 !important; border: 2px solid #fbc02d !important; color: #f57f17; }
+
+        .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 10px; }
+        .btn-save { 
+            padding: 12px 40px; border: none; border-radius: 50px; cursor: pointer; 
+            font-weight: bold; color: white; background: var(--primary-blue); 
+            font-size: 1.1em; box-shadow: 0 4px 15px rgba(2, 136, 209, 0.3);
+        }
+        #status { font-style: italic; color: #78909c; font-size: 0.9em; }
     </style>
 </head>
 <body>
 
+<div class="logo-area">
+    <img src="logo.png" alt="RMN-logo"/>
+</div>
+
 <div class="container">
-    <h2>الجدول الأسبوعي الذكي</h2>
+    <div class="controls">
+        <div id="status">جاري التحميل...</div>
+        <button class="btn-save" onclick="saveData()">💾 حفظ التعديلات</button>
+    </div>
+
     <table id="scheduleTable">
         <thead>
-            <tr id="dayNames">
-                <th class="section-title">اليوم</th>
-                </tr>
-            <tr id="dateRow">
-                <th class="section-title">التاريخ</th>
-                </tr>
+            <tr id="dayNames"><th class="section-title">اليوم</th></tr>
+            <tr id="dateRow"><th class="section-title">التاريخ</th></tr>
         </thead>
         <tbody>
-            <tr id="row-reflections">
-                <td class="section-title">تأملات</td>
-            </tr>
-            <tr id="row-verses">
-                <td class="section-title">آية اليوم</td>
-            </tr>
+            <tr id="row-ref"><td class="section-title">تأملات مسيحية</td></tr>
+            <tr id="row-ver"><td class="section-title">آية اليوم</td></tr>
         </tbody>
     </table>
 </div>
 
 <script>
-    const storageKey = 'schedule_data_v1';
-    const dayNamesAr = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    const BIN_ID = '69ca3a33856a682189dff87a'; 
+    const API_KEY = '$2a$10$QIQ1Ipa0xdzeDZtiaDYR6.RdJxqBfD5tFC0TNrp8Xr3xTTixgWSrO';
+    const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
     
-    // 1. Get data and clean old entries
-    function getCleanData() {
-        let data = JSON.parse(localStorage.getItem(storageKey) || "{}");
-        const todayStr = new Date().toISOString().split('T')[0];
-        
-        // Auto-delete past dates
-        Object.keys(data).forEach(date => {
-            if (date < todayStr) delete data[date];
-        });
-        
-        localStorage.setItem(storageKey, JSON.stringify(data));
-        return data;
-    }
+    let scheduleData = {};
+    const dayNamesAr = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
-    // 2. Generate the 14-day range (Starting from the most recent Sunday or Today)
-    function initTable() {
-        const data = getCleanData();
-        const dayHeader = document.getElementById('dayNames');
-        const dateHeader = document.getElementById('dateRow');
-        const rowRef = document.getElementById('row-reflections');
-        const rowVer = document.getElementById('row-verses');
-
-        let current = new Date();
-        // Start from today or go back to Sunday to keep a standard week view
-        current.setDate(current.getDate() - current.getDay()); 
-
-        for (let i = 0; i < 14; i++) {
-            const dateStr = current.toISOString().split('T')[0];
-            const isToday = new Date().toISOString().split('T')[0] === dateStr;
-            const displayDate = current.toLocaleDateString('en-GB'); // DD/MM/YYYY
-
-            // Create Headers
-            const thDay = document.createElement('th');
-            thDay.innerText = dayNamesAr[current.getDay()];
-            if(isToday) thDay.classList.add('today');
-            dayHeader.appendChild(thDay);
-
-            const thDate = document.createElement('th');
-            thDate.innerText = displayDate;
-            if(isToday) thDate.classList.add('today');
-            dateHeader.appendChild(thDate);
-
-            // Create Editable Cells
-            rowRef.appendChild(createCell(dateStr, 'ref', data[dateStr]?.ref || ""));
-            rowVer.appendChild(createCell(dateStr, 'ver', data[dateStr]?.ver || ""));
-
-            current.setDate(current.getDate() + 1);
+    async function loadData() {
+        try {
+            const res = await fetch(`${URL}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+            const json = await res.json();
+            scheduleData = json.record || {};
+            cleanOldData();
+            renderTable();
+            checkInventory(); // Notify if less than 10 days
+            document.getElementById('status').innerText = "تم التحديث ✅";
+        } catch (e) {
+            document.getElementById('status').innerText = "خطأ في الاتصال";
         }
     }
 
-    function createCell(date, type, content) {
+    async function saveData() {
+        document.getElementById('status').innerText = "جاري الحفظ...";
+        try {
+            await fetch(URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+                body: JSON.stringify(scheduleData)
+            });
+            document.getElementById('status').innerText = "تم الحفظ بنجاح ✨";
+            checkInventory();
+        } catch (e) {
+            alert("فشل الحفظ.");
+        }
+    }
+
+    function checkInventory() {
+        // Count entries that have content
+        const count = Object.values(scheduleData).filter(item => item.ref && item.ref.trim() !== "").length;
+        if (count < 10) {
+            alert(`تنبيه: يوجد لديك فقط ${count} أيام مبرمجة. يرجى إضافة المزيد من التأملات!`);
+        }
+    }
+
+    function cleanOldData() {
+        const today = new Date().toISOString().split('T')[0];
+        let needsSync = false;
+        Object.keys(scheduleData).forEach(date => {
+            if (date < today) { delete scheduleData[date]; needsSync = true; }
+        });
+        if (needsSync) saveData();
+    }
+
+    function renderTable() {
+        const dayRow = document.getElementById('dayNames');
+        const dateRow = document.getElementById('dateRow');
+        const rRef = document.getElementById('row-ref');
+        const rVer = document.getElementById('row-ver');
+
+        let now = new Date();
+        let day = now.getDay();
+        let diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        let start = new Date(now.setDate(diff));
+
+        for (let i = 0; i < 14; i++) {
+            let curr = new Date(start);
+            curr.setDate(start.getDate() + i);
+            let dStr = curr.toISOString().split('T')[0];
+            let isToday = new Date().toISOString().split('T')[0] === dStr;
+            let isWeek2Start = (i === 7);
+
+            const thD = document.createElement('th');
+            thD.innerText = dayNamesAr[curr.getDay()];
+            if(isWeek2Start) thD.classList.add('week-divider');
+            if(isToday) thD.classList.add('today-highlight');
+            dayRow.appendChild(thD);
+
+            const thT = document.createElement('th');
+            thT.innerText = curr.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit'});
+            if(isWeek2Start) thT.classList.add('week-divider');
+            dateRow.appendChild(thT);
+
+            rRef.appendChild(createCell(dStr, 'ref', isWeek2Start, isToday));
+            rVer.appendChild(createCell(dStr, 'ver', isWeek2Start, isToday));
+        }
+    }
+
+    function createCell(date, type, isDivider, isToday) {
         const td = document.createElement('td');
         td.className = 'editable';
-        td.contentEditable = true;
-        td.innerText = content;
+        td.contentEditable = true; 
+        if(isDivider) td.classList.add('week-divider');
+        if(isToday) td.classList.add('today-highlight');
+        td.innerText = scheduleData[date]?.[type] || "";
         
         td.oninput = () => {
-            const data = JSON.parse(localStorage.getItem(storageKey) || "{}");
-            if (!data[date]) data[date] = {};
-            data[date][type] = td.innerText;
-            localStorage.setItem(storageKey, JSON.stringify(data));
+            if(!scheduleData[date]) scheduleData[date] = {};
+            scheduleData[date][type] = td.innerText;
         };
-        
         return td;
     }
 
-    initTable();
+    loadData();
 </script>
 </body>
 </html>
