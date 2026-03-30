@@ -67,7 +67,7 @@
     const API_KEY = '$2a$10$QIQ1Ipa0xdzeDZtiaDYR6.RdJxqBfD5tFC0TNrp8Xr3xTTixgWSrO';
     const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
     
-    // Default structure
+    // Cleaned default: No more "ref" or "ver"
     let scheduleData = { 
         programs: ["تأملات مسيحية", "آية اليوم", "قديسي الأسبوع"], 
         data: {} 
@@ -79,15 +79,13 @@
             const res = await fetch(`${URL}/latest`, { headers: { 'X-Master-Key': API_KEY } });
             const json = await res.json();
             
-            // Ensure compatibility with the new structure
             if (json.record.programs && json.record.data) {
                 scheduleData = json.record;
             } else {
-                // If it's an old bin, migrate existing data to the 'data' key
                 scheduleData.data = json.record;
             }
 
-            cleanOldData(); // Delete passed dates
+            cleanOldData(); 
             renderTable();
             document.getElementById('status').innerText = "تم التحديث ✅";
         } catch (e) {
@@ -103,7 +101,8 @@
                 headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
                 body: JSON.stringify(scheduleData)
             });
-            document.getElementById('status').innerText = "تم الحفظ بنجاح ✨";
+            document.getElementById('status').innerText = "تم الحفظ ✅";
+            alert("تم حفظ التعديلات بنجاح! 💾✨"); // Added alert with emoji
         } catch (e) {
             alert("فشل الحفظ.");
         }
@@ -113,7 +112,6 @@
         const today = new Date().toISOString().split('T')[0];
         let needsSync = false;
         
-        // Remove keys where date is less than today
         Object.keys(scheduleData.data).forEach(dateKey => {
             if (dateKey < today) { 
                 delete scheduleData.data[dateKey]; 
@@ -149,6 +147,7 @@
         body.innerHTML = '';
 
         let now = new Date();
+        // Logic starts from current Monday
         let start = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)));
 
         let dates = [];
@@ -190,7 +189,7 @@
                 if(d.isDiv) td.classList.add('week-divider');
                 if(d.isToday) td.classList.add('today-highlight');
                 
-                // Read: scheduleData.data["2026-04-04"]["برنامج جديد"]
+                // Matches input directly to the program name
                 td.innerText = scheduleData.data[d.str]?.[prog] || "";
                 
                 td.oninput = () => {
