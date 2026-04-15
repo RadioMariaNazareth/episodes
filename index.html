@@ -14,7 +14,25 @@
             --text-main: #263238;
         }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f7fa; color: var(--text-main); margin: 0; padding: 15px; }
-        .logo-area { text-align: center; padding: 15px; background: white; margin-bottom: 20px; border-radius: 15px; border-bottom: 4px solid var(--primary-blue); }
+        
+        /* Logo & Status Dot */
+        .logo-area { text-align: center; padding: 15px; background: white; margin-bottom: 20px; border-radius: 15px; border-bottom: 4px solid var(--primary-blue); position: relative; }
+        #admin-logo { cursor: pointer; transition: transform 0.2s; -webkit-user-drag: none; user-select: none; }
+        #admin-logo:active { transform: scale(0.95); }
+
+        .glow-dot {
+            width: 12px; height: 12px; background-color: #4caf50; border-radius: 50%;
+            position: absolute; top: 20px; right: 20px;
+            box-shadow: 0 0 0 rgba(76, 175, 80, 0.4);
+            animation: pulse 1.5s infinite;
+            display: none; /* Hidden by default */
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        }
+
         .container { max-width: 100%; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 8px 30px rgba(0,0,0,0.05); overflow-x: auto; }
         
         table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 1000px; border: 1px solid var(--border-blue); border-radius: 8px; overflow: hidden; }
@@ -22,11 +40,16 @@
         th { background: var(--header-blue); color: #01579b; font-weight: bold; font-size: 0.95em; }
         
         .section-title { background: #f1f8ff; width: 180px; font-weight: 700; color: var(--primary-blue); border-left: 2px solid var(--primary-blue); position: relative; }
+        
+        /* Admin specific UI */
+        .admin-only { display: none !important; }
+        body.is-editor .admin-only { display: flex !important; }
+        body.is-editor .delete-row { visibility: visible !important; }
+
         .delete-row { color: #d32f2f; cursor: pointer; font-size: 0.8em; margin-right: 8px; visibility: hidden; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); }
-        .section-title:hover .delete-row { visibility: visible; }
 
         .editable { background: white; min-height: 70px; outline: none; font-size: 1.1em; transition: all 0.2s; }
-        .editable:focus { background: var(--light-blue-bg); }
+        body.is-editor .editable:focus { background: var(--light-blue-bg); border: 1px solid var(--primary-blue); }
         
         .week-divider { border-right: 4px solid var(--primary-blue) !important; }
         .today-highlight { background: #fffde7 !important; border: 2px solid #fbc02d !important; color: #f57f17; }
@@ -38,16 +61,17 @@
         #status { font-style: italic; color: #78909c; font-size: 0.9em; }
     </style>
 </head>
-<body>
+<body class="is-viewer">
 
 <div class="logo-area">
-    <img src="rmnlogo.png" style="width: 150px; height: auto;" alt="Radio Maria Nazareth Logo"/>
+    <div id="editor-dot" class="glow-dot" title="نمط التعديل مفعل"></div>
+    <img id="admin-logo" src="rmnlogo.png" style="width: 150px; height: auto;" alt="Radio Maria Nazareth Logo" onclick="handleLogoClick()"/>
 </div>
 
 <div class="container">
     <div class="controls">
         <div id="status">جاري التحميل...</div>
-        <div style="display:flex; gap:10px;">
+        <div class="admin-only" style="gap:10px;">
             <button class="btn btn-add" onclick="addNewProgram()">➕ برنامج جديد</button>
             <button class="btn btn-save" onclick="saveData()">💾 حفظ التعديلات</button>
         </div>
@@ -63,173 +87,180 @@
 </div>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-  // TODO: Replace with your actual config from Firebase Console
-const firebaseConfig = {
-  apiKey: "AIzaSyAgBLTm62Zyk-Au2wyGNHcwRVnpALtJSAo",
-  authDomain: "rmn-ep-names.firebaseapp.com",
-  databaseURL: "https://rmn-ep-names-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "rmn-ep-names",
-  storageBucket: "rmn-ep-names.firebasestorage.app",
-  messagingSenderId: "958519046265",
-  appId: "1:958519046265:web:af3c9a2a1bedcb550ca4a8",
-  measurementId: "G-CQV7NEXVEX"
-};
+    const firebaseConfig = {
+        apiKey: "AIzaSyAgBLTm62Zyk-Au2wyGNHcwRVnpALtJSAo",
+        authDomain: "rmn-ep-names.firebaseapp.com",
+        databaseURL: "https://rmn-ep-names-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "rmn-ep-names",
+        storageBucket: "rmn-ep-names.firebasestorage.app",
+        messagingSenderId: "958519046265",
+        appId: "1:958519046265:web:af3c9a2a1bedcb550ca4a8",
+        measurementId: "G-CQV7NEXVEX"
+    };
 
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const scheduleRef = ref(db, 'schedule');
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const scheduleRef = ref(db, 'schedule');
 
-  let scheduleData = { 
-    programs: ["تأملات مسيحية", "آية اليوم", "قديسي الأسبوع"], 
-    data: {} 
-  };
-  
-  const dayNamesAr = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    let scheduleData = { programs: [], data: {} };
+    let isEditorMode = false;
+    let logoClicks = 0;
+    let clickTimer;
 
-  // LOAD DATA (Real-time listener)
-  function loadData() {
-    document.getElementById('status').innerText = "جاري التحميل...";
-    
-    onValue(scheduleRef, (snapshot) => {
-      const val = snapshot.val();
-      if (val) {
-        scheduleData = val;
-        // Ensure data object exists
-        if (!scheduleData.data) scheduleData.data = {};
-        if (!scheduleData.programs) scheduleData.programs = [];
+    // TOGGLE LOGIC
+    window.handleLogoClick = function() {
+        logoClicks++;
+        clearTimeout(clickTimer);
         
-        cleanOldData(); 
-        renderTable();
-        document.getElementById('status').innerText = "تم التحديث ✅";
-      } else {
-        // If database is empty, initialize it
-        saveData(true);
-      }
-    }, (error) => {
-      document.getElementById('status').innerText = "خطأ في التصريح أو الاتصال";
-      console.error(error);
-    });
-  }
-
-  // SAVE DATA
-  async function saveData(isSilent = false) {
-    if(!isSilent) document.getElementById('status').innerText = "جاري الحفظ...";
-    try {
-      await set(scheduleRef, scheduleData);
-      if(!isSilent) {
-        document.getElementById('status').innerText = "تم الحفظ ✅";
-        alert("تم حفظ التعديلات بنجاح! 💾✨");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("فشل الحفظ: " + e.message);
-    }
-  }
-
-  function cleanOldData() {
-    const today = new Date().toISOString().split('T')[0];
-    let needsSync = false;
-    
-    if (scheduleData.data) {
-      Object.keys(scheduleData.data).forEach(dateKey => {
-        if (dateKey < today) { 
-          delete scheduleData.data[dateKey]; 
-          needsSync = true; 
+        if (logoClicks === 3) {
+            toggleEditorMode();
+            logoClicks = 0;
+        } else {
+            clickTimer = setTimeout(() => { logoClicks = 0; }, 1000); 
         }
-      });
-    }
-    
-    if (needsSync) saveData(true);
-  }
+    };
 
-  // UI Functions (Expose to window because of type="module")
-  window.addNewProgram = function() {
-    const name = prompt("أدخل اسم البرنامج الجديد:");
-    if (name && !scheduleData.programs.includes(name)) {
-      scheduleData.programs.push(name);
-      renderTable();
-    }
-  };
+    function toggleEditorMode() {
+        isEditorMode = !isEditorMode;
+        const body = document.body;
+        const dot = document.getElementById('editor-dot');
 
-  window.removeProgram = function(name) {
-    if(confirm(`هل تريد حذف برنامج ${name} نهائياً؟`)) {
-      scheduleData.programs = scheduleData.programs.filter(p => p !== name);
-      renderTable();
-    }
-  };
-
-  window.saveData = () => saveData();
-
-  function renderTable() {
-    const dayRow = document.getElementById('dayNames');
-    const dateRow = document.getElementById('dateRow');
-    const body = document.getElementById('tableBody');
-
-    dayRow.innerHTML = '<th class="section-title">اليوم</th>';
-    dateRow.innerHTML = '<th class="section-title">التاريخ</th>';
-    body.innerHTML = '';
-
-    let now = new Date();
-    // Start from current Monday
-    let start = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)));
-
-    let dates = [];
-    for (let i = 0; i < 14; i++) {
-      let curr = new Date(start);
-      curr.setDate(start.getDate() + i);
-      let dStr = curr.toISOString().split('T')[0];
-      dates.push({ 
-        str: dStr, 
-        isToday: new Date().toISOString().split('T')[0] === dStr, 
-        isDiv: (i === 7), 
-        day: dayNamesAr[curr.getDay()], 
-        label: curr.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit'}) 
-      });
-      
-      const thD = document.createElement('th');
-      thD.innerText = dates[i].day;
-      if(dates[i].isDiv) thD.classList.add('week-divider');
-      if(dates[i].isToday) thD.classList.add('today-highlight');
-      dayRow.appendChild(thD);
-
-      const thT = document.createElement('th');
-      thT.innerText = dates[i].label;
-      if(dates[i].isDiv) thT.classList.add('week-divider');
-      dateRow.appendChild(thT);
+        if (isEditorMode) {
+            body.classList.add('is-editor');
+            body.classList.remove('is-viewer');
+            dot.style.display = 'block';
+            console.log("Editor Mode Active");
+        } else {
+            body.classList.remove('is-editor');
+            body.classList.add('is-viewer');
+            dot.style.display = 'none';
+            console.log("Viewer Mode Active");
+        }
+        renderTable(); // Re-render to enable/disable contentEditable
     }
 
-    scheduleData.programs.forEach(prog => {
-      const tr = document.createElement('tr');
-      const titleTd = document.createElement('td');
-      titleTd.className = 'section-title';
-      titleTd.innerHTML = `${prog} <span class="delete-row" onclick="removeProgram('${prog}')">✖</span>`;
-      tr.appendChild(titleTd);
+    // FIREBASE LOGIC
+    function loadData() {
+        document.getElementById('status').innerText = "جاري التحميل...";
+        onValue(scheduleRef, (snapshot) => {
+            const val = snapshot.val();
+            if (val) {
+                scheduleData = val;
+                if (!scheduleData.data) scheduleData.data = {};
+                cleanOldData(); 
+                renderTable();
+                document.getElementById('status').innerText = "تم التحديث ✅";
+            }
+        });
+    }
 
-      dates.forEach(d => {
-        const td = document.createElement('td');
-        td.className = 'editable';
-        td.contentEditable = true;
-        if(d.isDiv) td.classList.add('week-divider');
-        if(d.isToday) td.classList.add('today-highlight');
-        
-        td.innerText = scheduleData.data[d.str]?.[prog] || "";
-        
-        td.oninput = () => {
-          if(!scheduleData.data[d.str]) scheduleData.data[d.str] = {};
-          scheduleData.data[d.str][prog] = td.innerText;
-        };
-        tr.appendChild(td);
-      });
-      body.appendChild(tr);
-    });
-  }
+    async function saveData() {
+        document.getElementById('status').innerText = "جاري الحفظ...";
+        try {
+            await set(scheduleRef, scheduleData);
+            document.getElementById('status').innerText = "تم الحفظ ✅";
+            alert("تم حفظ التعديلات بنجاح! 💾✨");
+        } catch (e) {
+            alert("فشل الحفظ: " + e.message);
+        }
+    }
 
-  // Initial Boot
-  loadData();
+    function cleanOldData() {
+        const today = new Date().toISOString().split('T')[0];
+        let needsSync = false;
+        Object.keys(scheduleData.data).forEach(dateKey => {
+            if (dateKey < today) { delete scheduleData.data[dateKey]; needsSync = true; }
+        });
+        if (needsSync) set(scheduleRef, scheduleData);
+    }
+
+    window.addNewProgram = function() {
+        const name = prompt("أدخل اسم البرنامج الجديد:");
+        if (name && !scheduleData.programs.includes(name)) {
+            scheduleData.programs.push(name);
+            renderTable();
+        }
+    };
+
+    window.removeProgram = function(name) {
+        if(confirm(`هل تريد حذف برنامج ${name} نهائياً؟`)) {
+            scheduleData.programs = scheduleData.programs.filter(p => p !== name);
+            renderTable();
+        }
+    };
+
+    window.saveData = () => saveData();
+
+    function renderTable() {
+        const dayRow = document.getElementById('dayNames');
+        const dateRow = document.getElementById('dateRow');
+        const body = document.getElementById('tableBody');
+        const dayNamesAr = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+
+        dayRow.innerHTML = '<th class="section-title">اليوم</th>';
+        dateRow.innerHTML = '<th class="section-title">التاريخ</th>';
+        body.innerHTML = '';
+
+        let now = new Date();
+        let start = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)));
+
+        let dates = [];
+        for (let i = 0; i < 14; i++) {
+            let curr = new Date(start);
+            curr.setDate(start.getDate() + i);
+            let dStr = curr.toISOString().split('T')[0];
+            dates.push({ 
+                str: dStr, 
+                isToday: new Date().toISOString().split('T')[0] === dStr, 
+                isDiv: (i === 7), 
+                day: dayNamesAr[curr.getDay()], 
+                label: curr.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit'}) 
+            });
+            
+            const thD = document.createElement('th');
+            thD.innerText = dates[i].day;
+            if(dates[i].isDiv) thD.classList.add('week-divider');
+            if(dates[i].isToday) thD.classList.add('today-highlight');
+            dayRow.appendChild(thD);
+
+            const thT = document.createElement('th');
+            thT.innerText = dates[i].label;
+            if(dates[i].isDiv) thT.classList.add('week-divider');
+            dateRow.appendChild(thT);
+        }
+
+        scheduleData.programs.forEach(prog => {
+            const tr = document.createElement('tr');
+            const titleTd = document.createElement('td');
+            titleTd.className = 'section-title';
+            // Only show X if in editor mode
+            const deleteBtn = isEditorMode ? `<span class="delete-row" onclick="removeProgram('${prog}')">✖</span>` : '';
+            titleTd.innerHTML = `${prog} ${deleteBtn}`;
+            tr.appendChild(titleTd);
+
+            dates.forEach(d => {
+                const td = document.createElement('td');
+                td.className = 'editable';
+                td.contentEditable = isEditorMode; // Dynamic permission
+                if(d.isDiv) td.classList.add('week-divider');
+                if(d.isToday) td.classList.add('today-highlight');
+                
+                td.innerText = scheduleData.data[d.str]?.[prog] || "";
+                
+                td.oninput = () => {
+                    if(!scheduleData.data[d.str]) scheduleData.data[d.str] = {};
+                    scheduleData.data[d.str][prog] = td.innerText;
+                };
+                tr.appendChild(td);
+            });
+            body.appendChild(tr);
+        });
+    }
+
+    loadData();
 </script>
 </body>
 </html>
