@@ -15,7 +15,6 @@
         }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f7fa; color: var(--text-main); margin: 0; padding: 15px; }
         
-        /* Logo & Status Dot */
         .logo-area { text-align: center; padding: 15px; background: white; margin-bottom: 20px; border-radius: 15px; border-bottom: 4px solid var(--primary-blue); position: relative; }
         #admin-logo { cursor: pointer; transition: transform 0.2s; -webkit-user-drag: none; user-select: none; }
         #admin-logo:active { transform: scale(0.95); }
@@ -25,7 +24,7 @@
             position: absolute; top: 20px; right: 20px;
             box-shadow: 0 0 0 rgba(76, 175, 80, 0.4);
             animation: pulse 1.5s infinite;
-            display: none; /* Hidden by default */
+            display: none;
         }
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
@@ -41,7 +40,6 @@
         
         .section-title { background: #f1f8ff; width: 180px; font-weight: 700; color: var(--primary-blue); border-left: 2px solid var(--primary-blue); position: relative; }
         
-        /* Admin specific UI */
         .admin-only { display: none !important; }
         body.is-editor .admin-only { display: flex !important; }
         body.is-editor .delete-row { visibility: visible !important; }
@@ -54,10 +52,15 @@
         .week-divider { border-right: 4px solid var(--primary-blue) !important; }
         .today-highlight { background: #fffde7 !important; border: 2px solid #fbc02d !important; color: #f57f17; }
 
-        .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 10px; gap: 10px; }
-        .btn { padding: 12px 25px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; color: white; font-size: 1em; }
+        .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 10px; gap: 10px; flex-wrap: wrap; }
+        .nav-group { display: flex; gap: 10px; align-items: center; }
+        
+        .btn { padding: 10px 20px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; color: white; font-size: 0.9em; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.9; }
         .btn-save { background: var(--primary-blue); }
         .btn-add { background: #4caf50; }
+        .btn-nav { background: #78909c; }
+        
         #status { font-style: italic; color: #78909c; font-size: 0.9em; }
     </style>
 </head>
@@ -70,7 +73,14 @@
 
 <div class="container">
     <div class="controls">
+        <div class="nav-group">
+            <button class="btn btn-nav" onclick="changeWeek(-1)">⬅️ الأسبوع السابق</button>
+            <button class="btn btn-nav" onclick="resetToToday()">اليوم</button>
+            <button class="btn btn-nav" onclick="changeWeek(1)">الأسبوع القادم ➡️</button>
+        </div>
+
         <div id="status">جاري التحميل...</div>
+
         <div class="admin-only" style="gap:10px;">
             <button class="btn btn-add" onclick="addNewProgram()">➕ برنامج جديد</button>
             <button class="btn btn-save" onclick="saveData()">💾 حفظ التعديلات</button>
@@ -109,12 +119,12 @@
     let isEditorMode = false;
     let logoClicks = 0;
     let clickTimer;
+    let weekOffset = 0; // 0 = current, -1 = last week, 1 = next week
 
     // TOGGLE LOGIC
     window.handleLogoClick = function() {
         logoClicks++;
         clearTimeout(clickTimer);
-        
         if (logoClicks === 3) {
             toggleEditorMode();
             logoClicks = 0;
@@ -132,15 +142,24 @@
             body.classList.add('is-editor');
             body.classList.remove('is-viewer');
             dot.style.display = 'block';
-            console.log("Editor Mode Active");
         } else {
             body.classList.remove('is-editor');
             body.classList.add('is-viewer');
             dot.style.display = 'none';
-            console.log("Viewer Mode Active");
         }
-        renderTable(); // Re-render to enable/disable contentEditable
+        renderTable();
     }
+
+    // NAVIGATION LOGIC
+    window.changeWeek = function(direction) {
+        weekOffset += direction;
+        renderTable();
+    };
+
+    window.resetToToday = function() {
+        weekOffset = 0;
+        renderTable();
+    };
 
     // FIREBASE LOGIC
     function loadData() {
@@ -150,7 +169,6 @@
             if (val) {
                 scheduleData = val;
                 if (!scheduleData.data) scheduleData.data = {};
-                cleanOldData(); 
                 renderTable();
                 document.getElementById('status').innerText = "تم التحديث ✅";
             }
@@ -166,15 +184,6 @@
         } catch (e) {
             alert("فشل الحفظ: " + e.message);
         }
-    }
-
-    function cleanOldData() {
-        const today = new Date().toISOString().split('T')[0];
-        let needsSync = false;
-        Object.keys(scheduleData.data).forEach(dateKey => {
-            if (dateKey < today) { delete scheduleData.data[dateKey]; needsSync = true; }
-        });
-        if (needsSync) set(scheduleRef, scheduleData);
     }
 
     window.addNewProgram = function() {
@@ -204,14 +213,20 @@
         dateRow.innerHTML = '<th class="section-title">التاريخ</th>';
         body.innerHTML = '';
 
+        // Calculate Start Date based on offset
         let now = new Date();
-        let start = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)));
+        // Move to the start of the week (Monday) and add/subtract based on weekOffset
+        let start = new Date();
+        let day = now.getDay();
+        let diff = now.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+        start.setDate(diff + (weekOffset * 7));
 
         let dates = [];
         for (let i = 0; i < 14; i++) {
             let curr = new Date(start);
             curr.setDate(start.getDate() + i);
             let dStr = curr.toISOString().split('T')[0];
+            
             dates.push({ 
                 str: dStr, 
                 isToday: new Date().toISOString().split('T')[0] === dStr, 
@@ -236,7 +251,6 @@
             const tr = document.createElement('tr');
             const titleTd = document.createElement('td');
             titleTd.className = 'section-title';
-            // Only show X if in editor mode
             const deleteBtn = isEditorMode ? `<span class="delete-row" onclick="removeProgram('${prog}')">✖</span>` : '';
             titleTd.innerHTML = `${prog} ${deleteBtn}`;
             tr.appendChild(titleTd);
@@ -244,7 +258,7 @@
             dates.forEach(d => {
                 const td = document.createElement('td');
                 td.className = 'editable';
-                td.contentEditable = isEditorMode; // Dynamic permission
+                td.contentEditable = isEditorMode;
                 if(d.isDiv) td.classList.add('week-divider');
                 if(d.isToday) td.classList.add('today-highlight');
                 
